@@ -1,8 +1,6 @@
 nltk
 python-docx
 torch
-tiktoken
-ollama
 chromadb
 openai
 langchain
@@ -13,4 +11,5 @@ langchain_text_splitters
 unstructured
 unstructured[all-docs]
 unstructured[docx,pptx]
+python-dotenv
 streamlit
