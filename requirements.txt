@@ -13,3 +13,4 @@ unstructured[all-docs]
 unstructured[docx,pptx]
 python-dotenv
 streamlit
+pypandoc-binary
