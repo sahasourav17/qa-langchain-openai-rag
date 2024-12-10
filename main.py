@@ -8,9 +8,73 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import openai
 from dotenv import load_dotenv
+import docx  # New import for creating Word documents
+import pypandoc
 
 load_dotenv()
 openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+def save_answers_to_markdown(questions, answers, filename="assessment_answers.md"):
+    """
+    Save questions and answers to a markdown file.
+
+    :param questions: List of questions
+    :param answers: List of corresponding answers
+    :param filename: Output filename
+    :return: Path to the saved markdown file
+    """
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".md") as temp_md:
+        # Add a title
+        temp_md.write("# Assessment Task 1: Knowledge Questions and Answers\n\n")
+
+        # Add each question and answer
+        for i, (question, answer) in enumerate(zip(questions, answers), 1):
+            # Add question with bold formatting
+            temp_md.write(f"## Question {question}\n\n")
+
+            # Add answer
+            temp_md.write(f"**Answer:** {answer}\n\n")
+
+        temp_md_path = temp_md.name
+
+    return temp_md_path
+
+
+# works fine
+def save_markdown_to_docx(markdown_path, output_filename="assessment_answers.docx"):
+    """
+    Convert markdown file to DOCX using Pandoc.
+
+    :param markdown_path: Path to the input markdown file
+    :param output_filename: Name of the output DOCX file
+    :return: Path to the saved DOCX file
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+        # Use Pandoc to convert markdown to DOCX
+        try:
+            pypandoc.convert_file(markdown_path, "docx", outputfile=temp_docx.name)
+            return temp_docx.name
+        except Exception as e:
+            st.error(f"Error converting markdown to DOCX: {e}")
+            return None
+
+
+def save_answers(questions, answers):
+    """
+    Main function to save answers first as markdown and then convert to DOCX.
+
+    :param questions: List of questions
+    :param answers: List of corresponding answers
+    :return: Path to the saved DOCX file
+    """
+    # Save to markdown first
+    markdown_path = save_answers_to_markdown(questions, answers)
+
+    # Convert markdown to DOCX
+    docx_path = save_markdown_to_docx(markdown_path)
+
+    return docx_path
 
 
 def load_document(uploaded_file):
@@ -104,9 +168,7 @@ def generate_answer(qa_chain, question, guidelines_qa=None):
             Context: {context}
             
             Instructions:
-            1. Provide comprehensive information based on the context
-            2. Use your own words while maintaining accuracy
-            3. Add relevant examples or elaborations where appropriate
+            1. Strictly follow the document structure like table etc
             
             Answer:"""
         )
@@ -130,9 +192,11 @@ def generate_answer(qa_chain, question, guidelines_qa=None):
 def main():
     st.title("Assessment Task 1: Knowledge Questions Solver")
 
-    # Initialize session state for storing questions
+    # Initialize session state for storing questions and answers
     if "extracted_questions" not in st.session_state:
         st.session_state.extracted_questions = None
+    if "generated_answers" not in st.session_state:
+        st.session_state.generated_answers = None
 
     # Question Extraction Section
     st.header("Step 1: Extract Questions")
@@ -160,7 +224,7 @@ def main():
 
     # Always show extracted questions if they exist
     if st.session_state.extracted_questions:
-        with st.expander("Show Extracted Questions", expanded=True):
+        with st.expander("Show Extracted Questions", expanded=False):
             for i, question in enumerate(st.session_state.extracted_questions, 1):
                 st.write(f"{question}")
         st.markdown("---")
@@ -204,10 +268,38 @@ def main():
 
             # Generate answers for each question
             st.subheader("Generated Answers:")
+            generated_answers = []
             for i, question in enumerate(st.session_state.extracted_questions, 1):
                 with st.expander(f"Question: {question}"):
                     answer = generate_answer(kb_qa, question, guidelines_qa)
                     st.write(answer)
+                    generated_answers.append(answer)
+
+            # Store generated answers in session state
+            st.session_state.generated_answers = generated_answers
+
+        # Save to DOCX button
+        if st.session_state.extracted_questions and st.session_state.generated_answers:
+            if st.button("Save Answers as DOCX"):
+                try:
+                    # Save answers to a .docx file
+                    saved_file_path = save_answers(
+                        st.session_state.extracted_questions,
+                        st.session_state.generated_answers,
+                    )
+
+                    # Provide download link
+                    with open(saved_file_path, "rb") as file:
+                        st.download_button(
+                            label="Download Answers",
+                            data=file.read(),
+                            file_name="assessment_answers.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        )
+
+                    st.success("Answers saved successfully!")
+                except Exception as e:
+                    st.error(f"Error saving file: {e}")
 
 
 if __name__ == "__main__":
