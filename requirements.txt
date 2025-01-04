@@ -10,7 +10,6 @@ langchain-community
 langchain_text_splitters
 unstructured
 unstructured[all-docs]
-unstructured[docx,pptx]
 python-dotenv
 streamlit
 pypandoc-binary
